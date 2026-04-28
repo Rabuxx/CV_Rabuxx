@@ -39,8 +39,26 @@ vercel
 
 Ou simplement importer le repo dans Vercel via l'interface web, aucune configuration nécessaire.
 
+## CI/CD
+
+Une pipeline GitHub Actions se déclenche automatiquement à chaque push sur `main`.
+
+Elle vérifie trois choses avant de déployer :
+
+| Étape | Outil | Rôle |
+|---|---|---|
+| Lint HTML | HTMLHint | Vérifie la syntaxe HTML |
+| Lint JS | ESLint | Analyse le JavaScript inline |
+| Scan sécurité | Trivy | Détecte les vulnérabilités critiques |
+| Déploiement | Vercel CLI | Mise en prod si tout est OK |
+
+Si une étape échoue, le déploiement est bloqué.
+
+Le workflow est dans `.github/workflows/ci.yml`.
+
 ## Stack
 
 - HTML / CSS / JavaScript vanilla
 - Police [JetBrains Mono](https://fonts.google.com/specimen/JetBrains+Mono)
 - Déployé sur Vercel
+- CI/CD via GitHub Actions
