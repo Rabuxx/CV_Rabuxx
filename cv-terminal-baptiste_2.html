@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Baptiste Rabussier — CV Terminal</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: #060d1a;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    padding: 2rem;
+  }
+
+  .scanlines {
+    pointer-events: none;
+    position: fixed;
+    inset: 0;
+    background: repeating-linear-gradient(
+      0deg,
+      transparent,
+      transparent 2px,
+      rgba(0,0,0,0.03) 2px,
+      rgba(0,0,0,0.03) 4px
+    );
+    z-index: 10;
+  }
+
+  .terminal {
+    width: 100%;
+    max-width: 860px;
+    background: #0d1b2a;
+    border-radius: 12px;
+    border: 1px solid #1e3a5f;
+    overflow: hidden;
+    box-shadow: 0 0 60px rgba(56, 139, 253, 0.08), 0 0 0 1px #1e3a5f;
+  }
+
+  .titlebar {
+    background: #111f30;
+    padding: 12px 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border-bottom: 1px solid #1e3a5f;
+    user-select: none;
+  }
+
+  .dot { width: 13px; height: 13px; border-radius: 50%; }
+  .d-red    { background: #ff5f57; }
+  .d-yellow { background: #febc2e; }
+  .d-green  { background: #28c840; }
+
+  .titlebar-label {
+    margin-left: 10px;
+    color: #4a6a8a;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+  }
+
+  .titlebar-right {
+    margin-left: auto;
+    color: #2a4a6a;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+  }
+
+  #output {
+    padding: 20px 24px;
+    color: #c9d8e8;
+    font-size: 13.5px;
+    line-height: 1.75;
+    min-height: 420px;
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+
+  #output::-webkit-scrollbar { width: 4px; }
+  #output::-webkit-scrollbar-track { background: transparent; }
+  #output::-webkit-scrollbar-thumb { background: #1e3a5f; border-radius: 2px; }
+
+  .line { margin-bottom: 2px; }
+  .block { margin-bottom: 14px; }
+
+  .input-line {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 24px 18px;
+    border-top: 1px solid #111f30;
+    background: #0a1520;
+  }
+
+  .ps1 { color: #3fb950; font-weight: 700; white-space: nowrap; font-size: 13.5px; }
+  .at  { color: #58a6ff; }
+  .sep { color: #4a6a8a; }
+
+  #cmd-input {
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #e6edf3;
+    font-family: 'JetBrains Mono', 'Courier New', monospace;
+    font-size: 13.5px;
+    flex: 1;
+    caret-color: #3fb950;
+  }
+
+  .cursor-blink {
+    display: inline-block;
+    width: 8px;
+    height: 15px;
+    background: #3fb950;
+    animation: blink 1s step-end infinite;
+    vertical-align: middle;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  /* colors */
+  .g  { color: #3fb950; }
+  .b  { color: #58a6ff; }
+  .y  { color: #d2a839; }
+  .r  { color: #f87171; }
+  .gr { color: #4a6a8a; }
+  .w  { color: #e6edf3; font-weight: 500; }
+  .cy { color: #39c5cf; }
+  .m  { color: #d2a8ff; }
+
+  .cmd-echo { color: #e6edf3; }
+
+  .bar-full { color: #3fb950; }
+  .bar-empty { color: #1e3a5f; }
+
+  .tag {
+    display: inline-block;
+    background: #0d2137;
+    border: 1px solid #1e3a5f;
+    border-radius: 4px;
+    padding: 1px 8px;
+    font-size: 11px;
+    color: #58a6ff;
+    margin: 2px 3px 2px 0;
+  }
+
+  .section-title {
+    color: #d2a839;
+    border-bottom: 1px solid #1a3050;
+    padding-bottom: 4px;
+    margin-bottom: 10px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+  }
+
+  .hint {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 6px;
+  }
+
+  .hint-cmd {
+    background: #0d2137;
+    border: 1px solid #1e3a5f;
+    border-radius: 4px;
+    padding: 3px 10px;
+    color: #3fb950;
+    font-size: 12px;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+  }
+  .hint-cmd:hover { background: #0f2a45; border-color: #3fb950; }
+
+  a { color: #58a6ff; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="scanlines"></div>
+<div class="terminal">
+  <div class="titlebar">
+    <div class="dot d-red"></div>
+    <div class="dot d-yellow"></div>
+    <div class="dot d-green"></div>
+    <span class="titlebar-label">
+      <span class="g">baptiste</span><span class="sep">@</span><span class="b">cv</span><span class="sep">:</span><span class="m">~</span><span class="sep">$</span>
+    </span>
+    <span class="titlebar-right">bash 5.2.0 — CV v1.1.0</span>
+  </div>
+  <div id="output"></div>
+  <div class="input-line">
+    <span class="ps1"><span class="g">baptiste</span><span class="sep">@</span><span class="b">cv</span><span class="sep">:</span><span class="m">~</span><span class="sep">$</span></span>
+    <input id="cmd-input" type="text" autocomplete="off" spellcheck="false" placeholder="tapez une commande..." />
+  </div>
+</div>
+
+<script>
+const out = document.getElementById('output');
+const inp = document.getElementById('cmd-input');
+let history = [];
+let histIdx = -1;
+
+const bar = (n, total=20) => {
+  const f = Math.round(n/100*total);
+  return `<span class="bar-full">${'█'.repeat(f)}</span><span class="bar-empty">${'░'.repeat(total-f)}</span>`;
+};
+
+const COMMANDS = {
+  help: () => `<div class="block">
+<div class="section-title">COMMANDES DISPONIBLES</div>
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:4px 24px">
+  <div><span class="g">whoami</span>          <span class="gr">→ identité & contact</span></div>
+  <div><span class="g">cat experience</span>  <span class="gr">→ expériences pro</span></div>
+  <div><span class="g">cat skills</span>      <span class="gr">→ compétences techniques</span></div>
+  <div><span class="g">cat education</span>   <span class="gr">→ formations & diplômes</span></div>
+  <div><span class="g">cat projects</span>    <span class="gr">→ projets réalisés</span></div>
+  <div><span class="g">git log</span>         <span class="gr">→ historique de carrière</span></div>
+  <div><span class="g">kubectl get me</span>  <span class="gr">→ résumé complet</span></div>
+  <div><span class="g">clear</span>           <span class="gr">→ effacer le terminal</span></div>
+</div>
+<div class="hint" style="margin-top:12px">
+  <button class="hint-cmd" onclick="runCmd('whoami')">whoami</button>
+  <button class="hint-cmd" onclick="runCmd('cat skills')">cat skills</button>
+  <button class="hint-cmd" onclick="runCmd('cat projects')">cat projects</button>
+  <button class="hint-cmd" onclick="runCmd('kubectl get me')">kubectl get me</button>
+</div>
+</div>`,
+
+  whoami: () => `<div class="block">
+<div class="section-title">IDENTITÉ</div>
+<div style="display:grid;grid-template-columns:160px 1fr;gap:3px 0;line-height:1.9">
+  <span class="gr">Nom</span>          <span class="w">Baptiste RABUSSIER</span>
+  <span class="gr">Poste visé</span>   <span class="cy">Administrateur Système DevOps</span>
+  <span class="gr">Statut</span>       <span class="g">● open to work — alternance / stage</span>
+  <span class="gr">Email</span>        <a href="mailto:baptiste.rabussier@gmail.com">baptiste.rabussier@gmail.com</a>
+  <span class="gr">Téléphone</span>    <span class="w">06 85 03 85 81</span>
+  <span class="gr">Localisation</span> <span class="w">Le Bouscat (33) — Bordeaux</span>
+  <span class="gr">Permis</span>       <span class="w">B</span>
+  <span class="gr">Langues</span>      <span class="w">Français (natif) · Anglais B2</span>
+</div>
+<div style="margin-top:10px;display:grid;grid-template-columns:160px 1fr;gap:3px 0">
+  <span class="gr">GitHub</span>       <a href="https://github.com/Rabuxx" target="_blank">github.com/Rabuxx</a>
+  <span class="gr">GitLab</span>       <a href="https://gitlab.com/baptiste.rabussier" target="_blank">gitlab.com/baptiste.rabussier</a>
+  <span class="gr">LinkedIn</span>     <a href="https://linkedin.com/in/baptisterabussier" target="_blank">linkedin.com/in/baptisterabussier</a>
+</div>
+</div>`,
+
+  'cat experience': () => `<div class="block">
+<div class="section-title">EXPÉRIENCES PROFESSIONNELLES</div>
+
+<div style="margin-bottom:14px">
+  <span class="w">Commercial Sédentaire</span> <span class="gr">—</span> <span class="b">KIMEX INTERNATIONAL</span>
+  <div class="gr" style="font-size:12px;margin:2px 0 6px">août 2021 → décembre 2025 · Saint-Jean-d'Illac (33)</div>
+  <div class="gr">·</div> Gestion portefeuille client<br>
+  <div class="gr">·</div> Reporting d'activité et back office<br>
+  <div class="gr">·</div> Spécialisation service technique<br>
+  <div class="gr">·</div> Analyse des besoins et conseil produits/projets
+</div>
+
+<div style="margin-bottom:14px">
+  <span class="w">Chargé de clientèle</span> <span class="gr">—</span> <span class="b">MAIF</span>
+  <div class="gr" style="font-size:12px;margin:2px 0 6px">juillet → septembre 2020 · Poitiers</div>
+  <div class="gr">·</div> Vente produits assurance automobile<br>
+  <div class="gr">·</div> Conseil et suivi des dossiers sociétaires
+</div>
+
+<div>
+  <span class="w">International Sales Consultant</span> <span class="gr">—</span> <span class="b">Reed Exhibitions ISG</span>
+  <div class="gr" style="font-size:12px;margin:2px 0 6px">mars → août 2019 · Boulogne-Billancourt</div>
+  <div class="gr">·</div> Prospection et gestion de base de données<br>
+  <div class="gr">·</div> Marketing international
+</div>
+</div>`,
+
+  'cat skills': () => `<div class="block">
+<div class="section-title">COMPÉTENCES TECHNIQUES</div>
+
+<div style="margin-bottom:10px"><span class="b">Conteneurisation</span></div>
+<div style="display:grid;grid-template-columns:200px 1fr 130px;gap:4px 0;margin-bottom:12px">
+  <span>Docker / Docker Compose</span>  <span>${bar(75)}</span>  <span class="y" style="padding-left:12px">Intermédiaire</span>
+  <span>Kubernetes / Helm</span>         <span>${bar(50)}</span>  <span class="cy" style="padding-left:12px">Débutant+</span>
+</div>
+
+<div style="margin-bottom:10px"><span class="b">CI/CD & Versionning</span></div>
+<div style="display:grid;grid-template-columns:200px 1fr 130px;gap:4px 0;margin-bottom:12px">
+  <span>Git / GitLab CI</span>           <span>${bar(75)}</span>  <span class="y" style="padding-left:12px">Intermédiaire</span>
+  <span>Jenkins</span>                   <span>${bar(35)}</span>  <span class="gr" style="padding-left:12px">Débutant</span>
+</div>
+
+<div style="margin-bottom:10px"><span class="b">IaC & Cloud</span></div>
+<div style="display:grid;grid-template-columns:200px 1fr 130px;gap:4px 0;margin-bottom:12px">
+  <span>Terraform / Ansible</span>       <span>${bar(35)}</span>  <span class="gr" style="padding-left:12px">Débutant</span>
+  <span>AWS</span>                       <span>${bar(35)}</span>  <span class="gr" style="padding-left:12px">Débutant</span>
+</div>
+
+<div style="margin-bottom:10px"><span class="b">Monitoring & Scripting</span></div>
+<div style="display:grid;grid-template-columns:200px 1fr 130px;gap:4px 0">
+  <span>Prometheus / Grafana</span>      <span>${bar(35)}</span>  <span class="gr" style="padding-left:12px">Débutant</span>
+  <span>Python</span>                    <span>${bar(50)}</span>  <span class="cy" style="padding-left:12px">Débutant+</span>
+  <span>Linux / Bash</span>              <span>${bar(50)}</span>  <span class="cy" style="padding-left:12px">Débutant+</span>
+</div>
+</div>`,
+
+  'cat education': () => `<div class="block">
+<div class="section-title">FORMATIONS & DIPLÔMES</div>
+
+<div style="margin-bottom:14px">
+  <span class="w">Administrateur Systèmes DevOps</span>
+  <span class="g" style="margin-left:8px;font-size:11px;border:1px solid #3fb950;padding:1px 7px;border-radius:4px">RNCP36061 — Niveau 6</span>
+  <div class="gr" style="font-size:12px;margin:2px 0 6px">mars → juin 2026 · <span class="b">La Capsule</span> · Paris</div>
+  Formation intensive : Linux, Python, Docker, Kubernetes, Helm,<br>
+  CI/CD (GitLab, Jenkins), Cloud, Terraform, Ansible, Prometheus, Grafana
+</div>
+
+<div style="margin-bottom:12px">
+  <span class="w">Licence Pro Management des Échanges Internationaux</span>
+  <div class="gr" style="font-size:12px;margin:2px 0 4px">2018 → 2019 · <span class="b">Université de Poitiers</span></div>
+  Achat/Vente à l'international
+</div>
+
+<div style="margin-bottom:12px">
+  <span class="w">BTS Commerce International</span>
+  <div class="gr" style="font-size:12px;margin:2px 0 4px">2016 → 2018 · <span class="b">Isaac de l'Étoile</span> · Poitiers</div>
+  Spécialité négociation vente en espagnol
+</div>
+
+<div>
+  <span class="w">Baccalauréat ES</span>
+  <div class="gr" style="font-size:12px;margin:2px 0 4px">2015 · <span class="b">Victor Hugo</span> · Poitiers</div>
+  Spécialité Mathématiques
+</div>
+</div>`,
+
+  'cat projects': () => `<div class="block">
+<div class="section-title">PROJETS RÉALISÉS</div>
+
+<div style="margin-bottom:16px;border-left:2px solid #1e3a5f;padding-left:14px">
+  <div style="margin-bottom:4px"><span class="w">[1] Serveur Multimédia</span></div>
+  <div style="margin-bottom:6px">
+    <span class="tag">Docker</span><span class="tag">Kubernetes</span><span class="tag">Helm</span><span class="tag">Jellyfin</span><span class="tag">Deluge</span><span class="tag">Jackett</span>
+  </div>
+  Déploiement d'une infrastructure multi-services selon trois approches :<br>
+  Docker Compose, Kubernetes natif et Helm chart.<br>
+  <div style="margin-top:6px"><a href="https://github.com/Rabuxx/media-server" target="_blank">→ github.com/Rabuxx/media-server</a></div>
+</div>
+
+<div style="border-left:2px solid #1e3a5f;padding-left:14px">
+  <div style="margin-bottom:4px"><span class="w">[2] RealWorldBank — Pipeline CI/CD</span></div>
+  <div style="margin-bottom:6px">
+    <span class="tag">GitLab CI</span><span class="tag">Cypress</span><span class="tag">Vitest</span><span class="tag">SonarCloud</span><span class="tag">Artillery</span><span class="tag">Vercel</span>
+  </div>
+  Pipeline CI/CD complet pour une application fintech :<br>
+  tests E2E, tests unitaires, analyse qualité (Quality Gate),<br>
+  déploiement automatisé et tests de montée en charge.<br>
+  <div style="margin-top:6px"><a href="https://gitlab.com/baptiste.rabussier/real.world.bank" target="_blank">→ gitlab.com/baptiste.rabussier/real.world.bank</a></div>
+</div>
+</div>`,
+
+  'git log': () => `<div class="block">
+<div class="section-title">GIT LOG — HISTORIQUE DE CARRIÈRE</div>
+<div style="font-size:12.5px">
+<div style="margin-bottom:10px">
+  <span class="y">commit a3f9d2e</span> <span class="g">(HEAD → main)</span> <span class="m">(origin/main)</span><br>
+  <span class="gr">Author: Baptiste Rabussier &lt;baptiste.rabussier@gmail.com&gt;</span><br>
+  <span class="gr">Date:   mars 2026</span><br>
+  <span style="padding-left:16px" class="w">feat: formation DevOps @ La Capsule — Docker, K8s, CI/CD, IaC</span>
+</div>
+<div style="margin-bottom:10px">
+  <span class="y">commit b7c1a4f</span><br>
+  <span class="gr">Date:   août 2021</span><br>
+  <span style="padding-left:16px" class="w">feat: commercial sédentaire @ Kimex (4 ans 5 mois)</span><br>
+  <span style="padding-left:16px" class="gr">+ spécialisation technique affichage dynamique</span>
+</div>
+<div style="margin-bottom:10px">
+  <span class="y">commit c5d3e1a</span><br>
+  <span class="gr">Date:   septembre 2018</span><br>
+  <span style="padding-left:16px" class="w">feat: licence pro management international @ Poitiers</span>
+</div>
+<div style="margin-bottom:10px">
+  <span class="y">commit d2e8b3c</span><br>
+  <span class="gr">Date:   septembre 2016</span><br>
+  <span style="padding-left:16px" class="w">feat: BTS commerce international — spé espagnol</span>
+</div>
+<div>
+  <span class="y">commit f4a9c1d</span><br>
+  <span class="gr">Date:   2015</span><br>
+  <span style="padding-left:16px" class="w">init: baccalauréat ES — spé mathématiques</span>
+</div>
+</div>
+</div>`,
+
+  'kubectl get me': () => `<div class="block">
+<div class="section-title">KUBECTL GET BAPTISTE</div>
+<div style="font-size:12.5px">
+<pre style="color:#c9d8e8;font-family:inherit">NAME                  STATUS    AGE   RESTARTS
+baptiste-rabussier    <span class="g">Running</span>   28y   0</pre>
+
+<div style="margin:12px 0">
+<span class="b">Labels:</span>
+<div style="padding-left:16px;margin-top:4px">
+  role=<span class="g">devops-admin</span><br>
+  stack=<span class="y">docker,kubernetes,helm,gitlab-ci,terraform,aws</span><br>
+  soft-skills=<span class="cy">rigueur,service-client,adaptabilite</span><br>
+  status=<span class="g">open-to-work</span><br>
+  type=<span class="m">alternance-stage</span><br>
+  location=<span class="w">bordeaux-france</span>
+</div>
+</div>
+
+<div style="margin:12px 0">
+<span class="b">Description:</span>
+<div style="padding-left:16px;margin-top:4px;line-height:1.9">
+  Après plusieurs années en relation client, reconversion<br>
+  vers l'infrastructure et les pratiques DevOps/CI-CD.<br>
+  Sens du service et rigueur au profit de l'industrialisation<br>
+  des déploiements et de la sécurisation des environnements.
+</div>
+</div>
+
+<div style="margin:12px 0">
+<span class="b">Events:</span>
+<div style="padding-left:16px;margin-top:4px">
+  <span class="gr">Normal</span>  <span class="g">Hackathon</span>  Serveur multimédia — Docker/K8s/Helm<br>
+  <span class="gr">Normal</span>  <span class="g">Hackathon</span>  Pipeline CI/CD bancaire — GitLab/SonarCloud<br>
+  <span class="gr">Normal</span>  <span class="g">Training</span>   La Capsule DevOps — mars → juin 2026
+</div>
+</div>
+
+<span class="g">✓ STATUS: AVAILABLE — en recherche d'alternance / stage DevOps</span>
+</div>
+</div>`,
+
+  clear: () => { out.innerHTML = ''; return null; }
+};
+
+// Échappement HTML — neutralise toute tentative d'injection XSS
+function escapeHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// Détecte les patterns XSS classiques
+function looksLikeXSS(str) {
+  return /<|>|javascript:|onerror|onload|onclick|alert\s*\(|script|eval\s*\(|document\.|window\./i.test(str);
+}
+
+// Popup stylisée (pas un alert natif)
+function showXSSWarning() {
+  const existing = document.getElementById('xss-popup');
+  if (existing) existing.remove();
+
+  const popup = document.createElement('div');
+  popup.id = 'xss-popup';
+  popup.style.cssText = `
+    position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
+    background: #0d1b2a; border: 1px solid #f87171; border-radius: 10px;
+    padding: 28px 36px; z-index: 9999; text-align: center;
+    box-shadow: 0 0 40px rgba(248,113,113,0.25);
+    font-family: 'JetBrains Mono', monospace; min-width: 320px;
+  `;
+  popup.innerHTML = `
+    <div style="font-size:28px;margin-bottom:12px">🛡️</div>
+    <div style="color:#f87171;font-weight:700;font-size:14px;margin-bottom:8px">TENTATIVE DÉTECTÉE</div>
+    <div style="color:#c9d8e8;font-size:13px;line-height:1.7">
+      Raté — je sais aussi<br>protéger mes applications 😎
+    </div>
+    <div style="margin-top:18px">
+      <button onclick="document.getElementById('xss-popup').remove()" style="
+        background:#1e3a5f;border:1px solid #f87171;border-radius:6px;
+        color:#f87171;font-family:inherit;font-size:12px;
+        padding:6px 20px;cursor:pointer;
+      ">fermer</button>
+    </div>
+  `;
+  document.body.appendChild(popup);
+
+  // Auto-fermeture après 4s
+  setTimeout(() => popup && popup.remove(), 4000);
+}
+
+function print(html) {
+  if (html === null) return;
+  const d = document.createElement('div');
+  d.innerHTML = html;
+  out.appendChild(d);
+  out.scrollTop = out.scrollHeight;
+}
+
+function printPrompt(cmd) {
+  const d = document.createElement('div');
+  d.className = 'line';
+  // On échappe cmd avant injection dans le DOM
+  d.innerHTML = `<span class="ps1"><span class="g">baptiste</span><span class="sep">@</span><span class="b">cv</span><span class="sep">:</span><span class="m">~</span><span class="sep">$</span></span> <span class="cmd-echo">${escapeHtml(cmd)}</span>`;
+  out.appendChild(d);
+}
+
+function runCmd(cmd) {
+  cmd = cmd.trim();
+  if (!cmd) return;
+
+  // Détection XSS avant tout traitement
+  if (looksLikeXSS(cmd)) {
+    showXSSWarning();
+    inp.value = '';
+    return;
+  }
+
+  history.unshift(cmd);
+  histIdx = -1;
+  printPrompt(cmd);
+  const fn = COMMANDS[cmd];
+  if (fn) {
+    const result = fn();
+    if (result !== null) print(result);
+  } else {
+    // cmd est échappé avant insertion dans le message d'erreur
+    print(`<div class="block"><span class="r">bash: ${escapeHtml(cmd)}: command not found</span> — tapez <span class="g">help</span> pour voir les commandes disponibles</div>`);
+  }
+  out.scrollTop = out.scrollHeight;
+}
+
+inp.addEventListener('keydown', e => {
+  if (e.key === 'Enter') {
+    const cmd = inp.value;
+    inp.value = '';
+    runCmd(cmd);
+  } else if (e.key === 'ArrowUp') {
+    e.preventDefault();
+    if (histIdx < history.length - 1) { histIdx++; inp.value = history[histIdx]; }
+  } else if (e.key === 'ArrowDown') {
+    e.preventDefault();
+    if (histIdx > 0) { histIdx--; inp.value = history[histIdx]; }
+    else { histIdx = -1; inp.value = ''; }
+  }
+});
+
+document.getElementById('terminal') && document.getElementById('terminal').addEventListener('click', () => inp.focus());
+document.querySelector('.terminal').addEventListener('click', () => inp.focus());
+
+
+
+print(`<div class="block">
+<span class="gr">────────────────────────────────────────────────────────────</span><br>
+  CV interactif de <span class="w">Baptiste Rabussier</span> — Administrateur Système DevOps<br>
+  Version <span class="y">1.1.0</span> · avril 2026 · <span class="g">open to work</span><br>
+<span class="gr">────────────────────────────────────────────────────────────</span>
+</div>`);
+
+print(`<div class="block">Tapez <span class="g">help</span> pour voir toutes les commandes disponibles.
+<div class="hint" style="margin-top:8px">
+  <button class="hint-cmd" onclick="runCmd('whoami')">whoami</button>
+  <button class="hint-cmd" onclick="runCmd('cat skills')">cat skills</button>
+  <button class="hint-cmd" onclick="runCmd('cat projects')">cat projects</button>
+  <button class="hint-cmd" onclick="runCmd('kubectl get me')">kubectl get me</button>
+  <button class="hint-cmd" onclick="runCmd('git log')">git log</button>
+</div>
+</div>`);
+
+inp.focus();
+</script>
+</body>
+</html>
