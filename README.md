@@ -28,7 +28,7 @@ Les entrées utilisateur sont échappées avant insertion dans le DOM — protec
 
 ## Déploiement
 
-Le projet est déployé sur Vercel : [baptiste-rabussier.vercel.app](https://baptiste-rabussier.vercel.app)
+Le projet est déployé sur Vercel : [baptiste-rabussier.vercel.app](https://baptiste-rabussier.vercel.app)](https://cv-rabuxx-k6d9banvj-rabuxxs-projects.vercel.app/)
 
 Pour déployer sa propre version :
 
