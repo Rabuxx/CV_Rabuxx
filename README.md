@@ -1,6 +1,6 @@
 # cv-terminal
 
-CV interactif sous forme de terminal web — HTML/CSS/JS vanilla, aucune dépendance.
+CV interactif sous forme de terminal web HTML/CSS/JS vanilla, aucune dépendance.
 
 ## Présentation
 
